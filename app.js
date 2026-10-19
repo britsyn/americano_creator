@@ -1,4 +1,4 @@
-import { generateSchedule, standings } from './schedule.js';
+import { generateSchedule, fullScheduleRoundCount, standings } from './schedule.js';
 const $ = id => document.getElementById(id);
 const key = 'rally-tournament-v1';
 let tournament = null;
@@ -8,9 +8,30 @@ function toast(message) { $('toast').textContent = message; $('toast').classList
 function persist() { try { localStorage.setItem(key, JSON.stringify(tournament)); storageAvailable = true; } catch { storageAvailable = false; toast('Browser storage is unavailable. Keep this page open to retain your tournament.'); } document.querySelector('.local-badge').textContent = storageAvailable ? '● Saved on this device' : '● Not saved — storage unavailable'; }
 function element(tag, text, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; }
 function names() { return $('names').value.split('\n').map(x => x.trim()).filter(Boolean); }
+let customRoundCount = false;
+function updateRoundSettings() {
+  const count = names().length, courts = Number($('courts').value);
+  const max = fullScheduleRoundCount(count, courts);
+  $('rounds').disabled = !max;
+  if (!max) {
+    if (!customRoundCount) $('rounds').value = '';
+    $('round-hint').textContent = 'Add at least 4 players and a valid court count to set rounds.';
+    return;
+  }
+  $('rounds').max = String(max);
+  if (!customRoundCount) $('rounds').value = String(count - 1);
+  $('round-hint').textContent = `Default: ${count - 1} (players − 1). Full no-repeat schedule: ${max} rounds. Choose 1–${max}. Shorter schedules may skip partners and give unequal game counts.`;
+}
+$('rounds').addEventListener('input', () => { customRoundCount = true; });
+$('rounds').addEventListener('change', () => {
+  if ($('rounds').value === '') { customRoundCount = false; updateRoundSettings(); }
+});
+$('courts').addEventListener('input', updateRoundSettings);
+$('auto-rounds').onclick = () => { customRoundCount = false; updateRoundSettings(); };
 function updatePlayerCount() {
   const count = names().length;
   $('player-count').textContent = `${count} ${count === 1 ? 'player' : 'players'}`;
+  updateRoundSettings();
 }
 $('names').addEventListener('input', updatePlayerCount);
 window.addEventListener('pageshow', updatePlayerCount);
@@ -22,7 +43,11 @@ $('setup-form').onsubmit = event => {
   if (players.length < 4 || players.length > 100) { $('error').textContent = 'Please add between 4 and 100 players.'; return; }
   if (new Set(players.map(x => x.toLowerCase())).size !== players.length) { $('error').textContent = 'Please give each player a unique name.'; return; }
   if (players.some(x => x.length > 60)) { $('error').textContent = 'Player names can contain up to 60 characters.'; return; }
-  tournament = { title: $('title').value.trim() || 'Americano', players, courts, scheduleVersion: 2, rounds: generateSchedule(players.length, courts) };
+  const requestedRounds = Number($('rounds').value), fullRounds = fullScheduleRoundCount(players.length, courts);
+  if (!Number.isInteger(requestedRounds) || requestedRounds < 1 || requestedRounds > fullRounds) {
+    $('error').textContent = `Choose between 1 and ${fullRounds} rounds to avoid repeated partners.`; return;
+  }
+  tournament = { title: $('title').value.trim() || 'Americano', players, courts, scheduleVersion: 2, shortened: requestedRounds < fullRounds, rounds: generateSchedule(players.length, courts, Math.random, requestedRounds) };
   persist(); render(); $('tournament').scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 function render() {
@@ -30,7 +55,9 @@ function render() {
   if (!tournament) return;
   $('tournament-name').textContent = tournament.title;
   $('partnership-note').textContent = tournament.scheduleVersion === 2
-    ? 'No repeated partners. Total games differ by at most one per player. Some rounds may use fewer courts; opponents may repeat.'
+    ? tournament.shortened
+      ? 'No repeated partners. This shortened schedule may skip partnerships and give unequal game counts. Some rounds may use fewer courts; opponents may repeat.'
+      : 'No repeated partners. Total games differ by at most one per player. Some rounds may use fewer courts; opponents may repeat.'
     : 'This saved tournament keeps its original schedule. Create a new tournament to guarantee no repeated partners.';
   const completed = tournament.rounds.flatMap(r => r.matches).filter(m => m.score).length;
   const total = tournament.rounds.reduce((n, r) => n + r.matches.length, 0);

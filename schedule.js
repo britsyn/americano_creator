@@ -1,8 +1,17 @@
 // Circle-method factorization: every unordered partnership appears at most once.
 // Virtual players make factors contain an even number of real teams where possible.
-export function generateSchedule(count, courts, random = Math.random) {
+export function fullScheduleRoundCount(count, courts) {
+  if (!Number.isInteger(count) || count < 4 || !Number.isInteger(courts) || courts < 1) return 0;
+  const size = count % 4 === 2 ? count + 2 : count + count % 2;
+  const matchesPerFactor = Math.floor(count / 4);
+  return (size - 1) * Math.ceil(matchesPerFactor / Math.min(courts, matchesPerFactor));
+}
+export function generateSchedule(count, courts, random = Math.random, roundLimit = null) {
   if (!Number.isInteger(count) || count < 4) throw new Error('At least four players are required.');
   if (!Number.isInteger(courts) || courts < 1) throw new Error('At least one court is required.');
+  if (roundLimit !== null && (!Number.isInteger(roundLimit) || roundLimit < 1 || roundLimit > fullScheduleRoundCount(count, courts))) {
+    throw new Error(`Choose between 1 and ${fullScheduleRoundCount(count, courts)} rounds to avoid repeated partners.`);
+  }
   const capacity = Math.min(courts, Math.floor(count / 4));
   const players = Array.from({ length: count }, (_, i) => i);
   for (let i = count - 1; i > 0; i--) {
@@ -60,7 +69,7 @@ export function generateSchedule(count, courts, random = Math.random) {
       result.push({ matches, resting: players.filter(id => !active.has(id)).sort((a, b) => a - b) });
     }
   }
-  return result;
+  return roundLimit === null ? result : result.slice(0, roundLimit);
 }
 export function standings(tournament) {
   const rows = tournament.players.map((name, id) => ({ id, name, points: 0, wins: 0, difference: 0, played: 0 }));

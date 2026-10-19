@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateSchedule, standings } from './schedule.js';
+import { generateSchedule, fullScheduleRoundCount, standings } from './schedule.js';
 function seeded(seed = 123) { return () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296); }
 test('unique partnerships, legal matches, rest coverage and balanced totals for 4–100 players', () => {
   for (let count = 4; count <= 100; count++) for (const courts of [1, 2, 5, 100]) for (const seed of [1, 123, 9876]) {
@@ -75,4 +75,22 @@ test('medals follow ranking, respect tied places and are absent without results'
   ]);
   tournament.rounds[0].matches[0].score = null;
   assert.ok(standings(tournament).every(r => r.medal === null));
+});
+
+test('round limits truncate exactly without introducing partner repeats', () => {
+  for (const [count, courts] of [[4,1],[5,2],[6,1],[7,2],[8,1],[8,2],[13,2],[20,3]]) {
+    const full = generateSchedule(count, courts, seeded());
+    assert.equal(full.length, fullScheduleRoundCount(count, courts));
+    for (const limit of [1, count - 1, full.length]) {
+      const short = generateSchedule(count, courts, seeded(), limit);
+      assert.equal(short.length, limit);
+      assert.deepEqual(short, full.slice(0, limit));
+      const pairs = short.flatMap(r => r.matches.flatMap(m => m.teams.map(t => [...t].sort((a,b)=>a-b).join(','))));
+      assert.equal(new Set(pairs).size, pairs.length);
+    }
+    for (const limit of [0,-1,1.5,full.length+1,NaN]) assert.throws(()=>generateSchedule(count,courts,seeded(),limit));
+  }
+  assert.equal(fullScheduleRoundCount(8,2),7);
+  assert.equal(fullScheduleRoundCount(8,1),14);
+  assert.equal(fullScheduleRoundCount(3,1),0);
 });
