@@ -113,18 +113,18 @@ $('export').onclick = () => {
     const rounds = tournament.rounds.slice(page * perPage, (page + 1) * perPage);
     const height = 150 + rounds.reduce((h, r) => h + 80 + r.matches.length * 42 + (r.resting.length ? 32 : 0), 0);
     const canvas = document.createElement('canvas'); canvas.width = 1400; canvas.height = height;
-    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#f6f5f0'; ctx.fillRect(0, 0, canvas.width, height);
-    function text(value, x, y, size = 20, color = '#203c34', max = 1280) { ctx.fillStyle = color; ctx.font = `${size}px sans-serif`; ctx.fillText(value, x, y, max); }
-    text(`rally.  /  ${tournament.title}`, 50, 60, 34); text(`Classic Americano · 20 points per match · Page ${page + 1}/${pages}`, 50, 100, 18, '#778365');
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = '#101211'; ctx.fillRect(0, 0, canvas.width, height);
+    function text(value, x, y, size = 20, color = '#f4f5eb', max = 1280) { ctx.fillStyle = color; ctx.font = `${size}px sans-serif`; ctx.fillText(value, x, y, max); }
+    text(`rally.  /  ${tournament.title}`, 50, 60, 34); text(`Classic Americano · 20 points per match · Page ${page + 1}/${pages}`, 50, 100, 18, '#b0be9e');
     let y = 145;
     rounds.forEach((round, index) => {
       text(`ROUND ${page * perPage + index + 1}`, 50, y, 22); y += 40;
       round.matches.forEach((match, ci) => {
-        text(`Court ${ci + 1}`, 50, y, 17); text(match.teams[0].map(i => tournament.players[i]).join(' + '), 170, y, 20, '#203c34', 440);
-        text(match.score ? match.score.join(' : ') : '— : —', 650, y, 20, '#203c34', 100);
-        text(match.teams[1].map(i => tournament.players[i]).join(' + '), 800, y, 20, '#203c34', 540); y += 42;
+        text(`Court ${ci + 1}`, 50, y, 17); text(match.teams[0].map(i => tournament.players[i]).join(' + '), 170, y, 20, '#d2fb55', 440);
+        text(match.score ? match.score.join(' : ') : '— : —', 650, y, 20, '#d2fb55', 100);
+        text(match.teams[1].map(i => tournament.players[i]).join(' + '), 800, y, 20, '#d2fb55', 540); y += 42;
       });
-      if (round.resting.length) { text(`Rest: ${round.resting.map(i => tournament.players[i]).join(', ')}`, 50, y, 17, '#778365'); y += 32; }
+      if (round.resting.length) { text(`Rest: ${round.resting.map(i => tournament.players[i]).join(', ')}`, 50, y, 17, '#c4b1e9'); y += 32; }
       y += 40;
     });
     canvas.toBlob(blob => { if (!blob) { toast('Image export failed. Please try another browser.'); return; } const url = URL.createObjectURL(blob), link = document.createElement('a'); link.href = url; link.download = `rally-schedule-${page + 1}.png`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 10000); });
