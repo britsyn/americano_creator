@@ -72,15 +72,20 @@ function updateProgress() {
   $('tournament-meta').textContent = `${tournament.players.length} players · ${Math.max(...tournament.rounds.map(r => r.matches.length))} courts max · ${tournament.rounds.length} rounds · ${completed}/${total} matches completed`;
 }
 function renderStandings() {
-  const view = $('standings-view'); view.replaceChildren(element('p', 'Ranked by total points, then wins, then point difference. Players with identical results share a rank. Rest rounds earn no points.', 'view-note'));
+  const view = $('standings-view'); view.replaceChildren(element('p', 'Ranked by points, wins, then point difference. Ties share a rank and medal. Medals are provisional until all matches are completed. Unplayed players have no medal.', 'view-note'));
   const wrap = element('div', undefined, 'table-wrap'), table = element('table'), head = element('thead'), header = element('tr');
   for (const title of ['Rank', 'Player', 'Played', 'Wins', '+/−', 'Points']) header.append(element('th', title));
-  head.append(header); table.append(head); const body = element('tbody'); let previous, rank;
-  standings(tournament).forEach((row, i) => {
-    const signature = `${row.points}/${row.wins}/${row.difference}`;
-    if (signature !== previous) rank = i + 1;
-    previous = signature;
-    const tr = element('tr'); for (const value of [rank, row.name, row.played, row.wins, row.difference, row.points]) tr.append(element('td', String(value))); body.append(tr);
+  head.append(header); table.append(head); const body = element('tbody');
+  standings(tournament).forEach(row => {
+    const tr = element('tr'), rankCell = element('td');
+    if (row.medal) {
+      const badge = element('span', String(row.rank), `medal medal-${row.medal}`);
+      badge.setAttribute('role', 'img'); badge.setAttribute('aria-label', `${row.medal} medal, rank ${row.rank}`);
+      rankCell.append(badge); tr.className = `podium-${row.medal}`;
+    } else rankCell.textContent = row.played ? String(row.rank) : '—';
+    tr.append(rankCell);
+    for (const value of [row.name, row.played, row.wins, row.difference, row.points]) tr.append(element('td', String(value)));
+    body.append(tr);
   });
   table.append(body); wrap.append(table); view.append(wrap);
 }
@@ -131,5 +136,74 @@ $('export').onclick = () => {
   }
   toast(pages > 1 ? `Exporting ${pages} images. Allow multiple downloads if prompted.` : 'Schedule image exported.');
 };
+$('export-results').onclick = async () => {
+  const button = $('export-results'); button.disabled = true;
+  // Snapshot scores and names before asynchronous PNG encoding.
+  const snapshot = structuredClone(tournament);
+  const allMatches = snapshot.rounds.flatMap(r => r.matches);
+  const completed = allMatches.filter(match => match.score).length;
+  const status = completed === allMatches.length ? 'FINAL RESULTS' : completed ? 'LIVE RESULTS · PROVISIONAL RANKING' : 'NO RESULTS YET';
+  const entries = [{ type: 'heading', text: 'PLAYER RANKING' }, { type: 'columns' }];
+  for (const row of standings(snapshot)) entries.push({ type: 'player', row });
+  entries.push({ type: 'heading', text: 'MATCH RESULTS' });
+  snapshot.rounds.forEach((round, ri) => {
+    entries.push({ type: 'round', text: `ROUND ${String(ri + 1).padStart(2, '0')}` });
+    round.matches.forEach((match, ci) => entries.push({ type: 'match', match, court: ci + 1, round: ri + 1 }));
+    if (round.resting.length) entries.push({ type: 'rest', text: `Rest: ${round.resting.map(i => snapshot.players[i]).join(', ')}` });
+  });
+  const perPage = 40, pages = Math.ceil(entries.length / perPage);
+  try {
+    for (let page = 0; page < pages; page++) {
+      const rows = entries.slice(page * perPage, (page + 1) * perPage);
+      const canvas = document.createElement('canvas'); canvas.width = 1400; canvas.height = 260 + rows.length * 52;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#101211'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+      function text(value, x, y, size = 20, color = '#f4f5eb', max = 1280) {
+        ctx.fillStyle = color; ctx.font = `${size}px sans-serif`; ctx.fillText(String(value), x, y, max);
+      }
+      function medal(rank, x, y, kind) {
+        const color = { gold: '#ffd36a', silver: '#d8e1ed', bronze: '#e3a16c' }[kind];
+        ctx.fillStyle = '#af93ff'; ctx.beginPath(); ctx.moveTo(x - 16, y - 25); ctx.lineTo(x + 16, y - 25); ctx.lineTo(x + 8, y + 6); ctx.lineTo(x - 8, y + 6); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y + 3, 15, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill();
+        ctx.textAlign = 'center'; text(rank, x, y + 9, 16, '#241d11', 25); ctx.textAlign = 'left';
+      }
+      text('rally. / ' + snapshot.title, 50, 61, 34, '#d2fb55');
+      text(status, 50, 104, 18, '#c4b1e9');
+      text(`${completed}/${allMatches.length} matches completed · ${snapshot.players.length} players · Page ${page + 1}/${pages}`, 50, 138, 18, '#b0be9e');
+      if (page > 0 && rows[0].type === 'player') {
+        text('RANK', 50, 178, 13); text('PLAYER', 130, 178, 13); text('PLAYED', 800, 178, 13); text('WINS', 950, 178, 13); text('+ / −', 1080, 178, 13); text('POINTS', 1230, 178, 13);
+      }
+      let y = 218;
+      for (const entry of rows) {
+        if (entry.type === 'heading') text(entry.text, 50, y, 25, '#d2fb55');
+        else if (entry.type === 'columns') {
+          text('RANK', 50, y, 13); text('PLAYER', 130, y, 13); text('PLAYED', 800, y, 13); text('WINS', 950, y, 13); text('+ / −', 1080, y, 13); text('POINTS', 1230, y, 13);
+        } else if (entry.type === 'player') {
+          const row = entry.row;
+          if (row.medal) medal(row.rank, 72, y - 7, row.medal); else text(row.played ? row.rank : '—', 60, y);
+          text(row.name, 130, y, 21, '#f4f5eb', 620); text(row.played, 820, y); text(row.wins, 960, y); text(row.difference, 1080, y); text(row.points, 1250, y, 23, '#d2fb55', 95);
+        } else if (entry.type === 'round') text(entry.text, 50, y, 17, '#c4b1e9');
+        else if (entry.type === 'rest') text(entry.text, 50, y, 16, '#b0be9e');
+        else if (entry.type === 'match') {
+          const match = entry.match;
+          text(`R${entry.round} / C${entry.court}`, 50, y, 16, '#b0be9e', 100);
+          text(match.teams[0].map(i => snapshot.players[i]).join(' + '), 170, y, 19, '#f4f5eb', 430);
+          text(match.score ? match.score.join(' : ') : 'Not played', 630, y, 19, match.score ? '#d2fb55' : '#b0be9e', 150);
+          text(match.teams[1].map(i => snapshot.players[i]).join(' + '), 820, y, 19, '#f4f5eb', 530);
+        }
+        y += 52;
+      }
+      text('Classic Americano · Ties share a rank · Points / wins / point difference', 50, canvas.height - 23, 14, '#b0be9e');
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (!blob) throw new Error('PNG encoding failed');
+      const url = URL.createObjectURL(blob), link = document.createElement('a');
+      link.href = url; link.download = `rally-results-ranking-${page + 1}.png`; link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
+    toast(pages > 1 ? `Exported ${pages} results images. Allow multiple downloads if prompted.` : 'Results and ranking image exported.');
+  } catch { toast('Image export failed. Please try again or use another browser.'); }
+  finally { button.disabled = false; }
+};
+
 render();
 if (!storageAvailable) document.querySelector('.local-badge').textContent = '● Browser storage unavailable';

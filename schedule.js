@@ -71,5 +71,11 @@ export function standings(tournament) {
       row.points += own; row.difference += own - other; row.played++; row.wins += Number(own > other);
     }));
   }
-  return rows.sort((a, b) => b.points - a.points || b.wins - a.wins || b.difference - a.difference || a.name.localeCompare(b.name));
+  let previous, rank;
+  return rows.sort((a, b) => b.points - a.points || b.wins - a.wins || b.difference - a.difference || a.name.localeCompare(b.name)).map((row, index) => {
+    const signature = `${row.points}/${row.wins}/${row.difference}`;
+    if (signature !== previous) rank = index + 1;
+    previous = signature;
+    return { ...row, rank, medal: row.played > 0 && rank <= 3 ? ['gold', 'silver', 'bronze'][rank - 1] : null };
+  });
 }

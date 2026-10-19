@@ -25,7 +25,9 @@ Open the local server on port 5173. The static build is in `dist/`. Deploy that 
 - Every match awards exactly 20 total points. Enter either team's score; the other is calculated. A 10–10 draw is valid. Clear either score to mark the match unplayed.
 - Ranking: individual points, wins, point difference. Equal records share a rank. Rest earns no points; totals are not normalized by games played.
 - A replacement inherits the previous player's slot, schedule and all results. This behavior is confirmed before applying.
-- PNG export includes matches, names, scores and resting players. Large schedules are split into multiple images; the browser may ask to allow multiple downloads.
+- The standings award gold, silver and bronze medals to ranks 1–3, including shared places. Medals are provisional until all matches finish and are absent for players without results.
+- “Save results & ranking” exports a combined PNG report with ranking, medals, match scores and rest lists. Unfinished tournaments are marked LIVE RESULTS; unplayed matches are labeled explicitly. Large reports are split into numbered images.
+- Schedule PNG export includes matches, names, scores and resting players. Large schedules are split into multiple images; the browser may ask to allow multiple downloads.
 
 ## GitHub Pages
 

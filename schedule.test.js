@@ -58,3 +58,21 @@ test('standings count draws, wins, points, and skip unplayed matches', () => {
 test('invalid tournament sizes are rejected', () => {
   assert.throws(() => generateSchedule(3, 1)); assert.throws(() => generateSchedule(4, 0));
 });
+
+test('medals follow ranking, respect tied places and are absent without results', () => {
+  const tournament = { players: ['Alex', 'Sam', 'Jamie', 'Taylor'], rounds: [{ matches: [
+    { teams: [[0, 1], [2, 3]], score: [14, 6] },
+    { teams: [[0, 2], [1, 3]], score: [13, 7] },
+    { teams: [[0, 3], [1, 2]], score: [12, 8] }
+  ] }] };
+  assert.deepEqual(standings(tournament).map(r => [r.rank, r.medal, r.points]), [
+    [1, 'gold', 39], [2, 'silver', 29], [3, 'bronze', 27], [4, null, 25]
+  ]);
+  tournament.rounds[0].matches[1].score = null;
+  tournament.rounds[0].matches[2].score = null;
+  assert.deepEqual(standings(tournament).map(r => [r.rank, r.medal]), [
+    [1, 'gold'], [1, 'gold'], [3, 'bronze'], [3, 'bronze']
+  ]);
+  tournament.rounds[0].matches[0].score = null;
+  assert.ok(standings(tournament).every(r => r.medal === null));
+});
