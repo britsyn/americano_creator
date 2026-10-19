@@ -8,7 +8,13 @@ function toast(message) { $('toast').textContent = message; $('toast').classList
 function persist() { try { localStorage.setItem(key, JSON.stringify(tournament)); storageAvailable = true; } catch { storageAvailable = false; toast('Browser storage is unavailable. Keep this page open to retain your tournament.'); } document.querySelector('.local-badge').textContent = storageAvailable ? '● Saved on this device' : '● Not saved — storage unavailable'; }
 function element(tag, text, className) { const node = document.createElement(tag); if (text !== undefined) node.textContent = text; if (className) node.className = className; return node; }
 function names() { return $('names').value.split('\n').map(x => x.trim()).filter(Boolean); }
-$('names').addEventListener('input', () => $('player-count').textContent = `${names().length} players added`);
+function updatePlayerCount() {
+  const count = names().length;
+  $('player-count').textContent = `${count} ${count === 1 ? 'player' : 'players'}`;
+}
+$('names').addEventListener('input', updatePlayerCount);
+window.addEventListener('pageshow', updatePlayerCount);
+updatePlayerCount();
 $('demo').onclick = () => { $('names').value = 'Alex\nSam\nJamie\nTaylor\nMorgan\nJordan\nCharlie\nRiley'; $('names').dispatchEvent(new Event('input')); };
 $('setup-form').onsubmit = event => {
   event.preventDefault(); $('error').textContent = '';
