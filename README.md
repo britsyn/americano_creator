@@ -12,7 +12,7 @@ npm run build
 npm run dev
 ```
 
-Open the local server on port 5173. The static build is in `dist/`.
+Open the local server on port 5173. The static build is in `dist/`. Deploy that directory, not the source root. The build fingerprints CSS and JavaScript filenames by content, including module imports, so cached assets cannot mix different releases.
 
 ## Rules
 
