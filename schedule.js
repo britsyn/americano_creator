@@ -1,36 +1,64 @@
+// Circle-method factorization: every unordered partnership appears at most once.
+// Virtual players make factors contain an even number of real teams where possible.
 export function generateSchedule(count, courts, random = Math.random) {
   if (!Number.isInteger(count) || count < 4) throw new Error('At least four players are required.');
   if (!Number.isInteger(courts) || courts < 1) throw new Error('At least one court is required.');
-  const active = Math.min(courts, Math.floor(count / 4)) * 4;
-  const rounds = count % 4 === 0 ? count - 1 : Math.ceil(count * (count - 1) / active);
-  const partners = Array.from({ length: count }, () => Array(count).fill(0));
-  const opponents = Array.from({ length: count }, () => Array(count).fill(0));
+  const capacity = Math.min(courts, Math.floor(count / 4));
+  const players = Array.from({ length: count }, (_, i) => i);
+  for (let i = count - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [players[i], players[j]] = [players[j], players[i]];
+  }
+  // For 4k+2 players, two virtual players leave just one factor with an odd
+  // number of real teams. Removing one team there gives a final game gap of 1.
+  const size = count % 4 === 2 ? count + 2 : count + count % 2;
+  const ring = size - 1;
+  const factors = [];
+  for (let r = 0; r < ring; r++) {
+    const teams = [];
+    const add = (a, b) => { if (a < count && b < count) teams.push([players[a], players[b]]); };
+    add(size - 1, r);
+    for (let offset = 1; offset <= (size - 2) / 2; offset++) {
+      // For 4k+3 players omit the +/-1 pair in each factor. Each real
+      // player loses exactly two partnerships and has the same game count.
+      if (count % 4 === 3 && offset === 1) continue;
+      add((r + offset) % ring, (r - offset + ring) % ring);
+    }
+    if (teams.length % 2) teams.splice(Math.floor(random() * teams.length), 1);
+    if (teams.length) factors.push(teams);
+  }
   const played = Array(count).fill(0);
+  const opponents = Array.from({ length: count }, () => Array(count).fill(0));
   const result = [];
-  for (let r = 0; r < rounds; r++) {
-    const available = Array.from({ length: count }, (_, i) => ({ i, tie: random() }))
-      .sort((a, b) => played[a.i] - played[b.i] || a.tie - b.tie).slice(0, active).map(x => x.i);
-    let best, bestCost = Infinity;
-    for (let attempt = 0; attempt < 300; attempt++) {
-      const order = [...available];
-      for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-      let cost = 0;
-      for (let i = 0; i < active; i += 4) {
-        const [a, b, c, d] = order.slice(i, i + 4);
-        cost += 20 * (partners[a][b] ** 2 + partners[c][d] ** 2);
-        for (const x of [a, b]) for (const y of [c, d]) cost += opponents[x][y] ** 2;
+  while (factors.length) {
+    // Choose the next factor to favor players who have played less so far.
+    let selected = 0, best = Infinity;
+    factors.forEach((teams, index) => {
+      const next = [...played]; teams.flat().forEach(id => next[id]++);
+      const cost = Math.max(...next) - Math.min(...next) + next.reduce((sum, n) => sum + n * n, 0) / (count * count);
+      if (cost < best) { best = cost; selected = index; }
+    });
+    const teams = factors.splice(selected, 1)[0];
+    while (teams.length) {
+      // Teams in a factor are disjoint, so any two can form a legal match.
+      teams.sort((a, b) => a.reduce((s, id) => s + played[id], 0) - b.reduce((s, id) => s + played[id], 0));
+      const matches = [];
+      while (teams.length && matches.length < capacity) {
+        const team = teams.shift();
+        let opponentIndex = 0, cost = Infinity;
+        teams.forEach((other, index) => {
+          const value = other.reduce((sum, id) => sum + played[id] * count, 0)
+            + team.reduce((sum, a) => sum + other.reduce((s, b) => s + opponents[a][b] ** 2, 0), 0);
+          if (value < cost) { cost = value; opponentIndex = index; }
+        });
+        const other = teams.splice(opponentIndex, 1)[0];
+        matches.push({ teams: [team, other], score: null });
+        for (const a of team) for (const b of other) { opponents[a][b]++; opponents[b][a]++; }
       }
-      if (cost < bestCost) { bestCost = cost; best = order; }
+      const active = new Set(matches.flatMap(match => match.teams.flat()));
+      active.forEach(id => played[id]++);
+      result.push({ matches, resting: players.filter(id => !active.has(id)).sort((a, b) => a - b) });
     }
-    const matches = [];
-    for (let i = 0; i < active; i += 4) {
-      const [a, b, c, d] = best.slice(i, i + 4);
-      matches.push({ teams: [[a, b], [c, d]], score: null });
-      for (const [x, y] of [[a, b], [c, d]]) { partners[x][y]++; partners[y][x]++; }
-      for (const x of [a, b]) for (const y of [c, d]) { opponents[x][y]++; opponents[y][x]++; }
-    }
-    available.forEach(i => played[i]++);
-    result.push({ matches, resting: Array.from({ length: count }, (_, i) => i).filter(i => !available.includes(i)) });
   }
   return result;
 }

@@ -22,16 +22,19 @@ $('setup-form').onsubmit = event => {
   if (players.length < 4 || players.length > 100) { $('error').textContent = 'Please add between 4 and 100 players.'; return; }
   if (new Set(players.map(x => x.toLowerCase())).size !== players.length) { $('error').textContent = 'Please give each player a unique name.'; return; }
   if (players.some(x => x.length > 60)) { $('error').textContent = 'Player names can contain up to 60 characters.'; return; }
-  tournament = { title: $('title').value.trim() || 'Americano', players, courts, rounds: generateSchedule(players.length, courts) };
+  tournament = { title: $('title').value.trim() || 'Americano', players, courts, scheduleVersion: 2, rounds: generateSchedule(players.length, courts) };
   persist(); render(); $('tournament').scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 function render() {
   $('setup').hidden = Boolean(tournament); $('tournament').hidden = !tournament;
   if (!tournament) return;
   $('tournament-name').textContent = tournament.title;
+  $('partnership-note').textContent = tournament.scheduleVersion === 2
+    ? 'No repeated partners. Total games differ by at most one per player. Some rounds may use fewer courts; opponents may repeat.'
+    : 'This saved tournament keeps its original schedule. Create a new tournament to guarantee no repeated partners.';
   const completed = tournament.rounds.flatMap(r => r.matches).filter(m => m.score).length;
   const total = tournament.rounds.reduce((n, r) => n + r.matches.length, 0);
-  $('tournament-meta').textContent = `${tournament.players.length} players · ${tournament.rounds[0].matches.length} courts · ${tournament.rounds.length} rounds · ${completed}/${total} matches completed`;
+  $('tournament-meta').textContent = `${tournament.players.length} players · ${Math.max(...tournament.rounds.map(r => r.matches.length))} courts max · ${tournament.rounds.length} rounds · ${completed}/${total} matches completed`;
   const view = $('schedule-view'); view.replaceChildren();
   tournament.rounds.forEach((round, ri) => {
     const box = element('section', undefined, 'round'), heading = element('div', undefined, 'round-heading');
@@ -66,7 +69,7 @@ function render() {
 function updateProgress() {
   const completed = tournament.rounds.flatMap(r => r.matches).filter(m => m.score).length;
   const total = tournament.rounds.reduce((n, r) => n + r.matches.length, 0);
-  $('tournament-meta').textContent = `${tournament.players.length} players · ${tournament.rounds[0].matches.length} courts · ${tournament.rounds.length} rounds · ${completed}/${total} matches completed`;
+  $('tournament-meta').textContent = `${tournament.players.length} players · ${Math.max(...tournament.rounds.map(r => r.matches.length))} courts max · ${tournament.rounds.length} rounds · ${completed}/${total} matches completed`;
 }
 function renderStandings() {
   const view = $('standings-view'); view.replaceChildren(element('p', 'Ranked by total points, then wins, then point difference. Players with identical results share a rank. Rest rounds earn no points.', 'view-note'));

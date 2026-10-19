@@ -17,9 +17,11 @@ Open the local server on port 5173. The static build is in `dist/`.
 ## Rules
 
 - 4–100 players; any positive court count up to 100. Uses at most `floor(players / 4)` courts.
-- Schedule length targets roughly one game per possible partner: `players - 1` rounds for multiples of four; otherwise `ceil(players * (players - 1) / activePlayers)`.
-- Each round selects players with the fewest games first. Number of games differs by at most one, including when there are fewer courts than needed.
-- Random search minimizes repeated partnerships first and repeated opponents second. This is a heuristic, not a guarantee of a complete round robin or zero repeats.
+- Partnerships are generated with the circle method and never repeat in a new tournament. Randomness changes player assignment and some pairings of opposing teams, not the uniqueness guarantee.
+- With `4k` or `4k+1` players every possible partnership appears exactly once. For `4k+2`, exactly one partnership is omitted so teams can be grouped into matches. For `4k+3`, each player has two omitted partners, yielding equal total games without repeats.
+- Fewer courts split a factor into several rounds; the final round of a factor may use fewer courts. Tournament length is determined by this construction and available courts.
+- Total games per player differ by at most one by the end. Round ordering favors players with fewer games, but intermediate game counts and consecutive rest rounds are not guaranteed equal. Repeated opponents are minimized, not prohibited.
+- Previously saved tournaments keep their schedule and results; create a new tournament to use the no-repeat rule. Replacements inherit a slot, so uniqueness applies to slots (use a genuinely new player for a replacement).
 - Every match awards exactly 20 total points. Enter either team's score; the other is calculated. A 10–10 draw is valid. Clear either score to mark the match unplayed.
 - Ranking: individual points, wins, point difference. Equal records share a rank. Rest earns no points; totals are not normalized by games played.
 - A replacement inherits the previous player's slot, schedule and all results. This behavior is confirmed before applying.
